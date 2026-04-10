@@ -65,6 +65,6 @@ def check-proxy [] {
     }
 }
 
-source ./file_search.nu
+source ./excel_search.nu
 
-greet "Morr"
+greet "MNF_Condé"
