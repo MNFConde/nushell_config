@@ -76,13 +76,94 @@ def check-proxy [] {
 # 在递归查找的所有 Excel 文件中搜索指定字符串
 # 输入: 要搜索的字符串
 # 输出: 每一行格式为 "相对路径 -- 匹配的单元格内容"
+# 辅助函数：将列索引（0-based）转换为 Excel 列字母（A, B, ..., Z, AA, AB...）
+def col_index_to_letter [idx: int] {
+    let letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    if $idx < 26 {
+        ($letters | str substring $idx..$idx)
+    } else {
+        let first = ($idx // 26) - 1
+        let second = ($idx mod 26)
+        (col_index_to_letter $first) + (col_index_to_letter $second)
+    }
+}
+
+# 在 Excel 文件中搜索，返回一个 list<record>
+def search_in_excel [file: string, pattern: string] {
+    let workbook = (open $file)
+    let sheets = if ($workbook | describe) =~ 'record' { $workbook } else { { "Sheet1": $workbook } }
+    mut results = []
+    for $sheet_name in ($sheets | columns) {
+        let table = ($sheets | get $sheet_name)
+        let columns = if ($table | is-empty) { [] } else { ($table | first | columns) }
+        for $row_idx in 0..<($table | length) {
+            let row = ($table | get $row_idx)
+            for $col_idx in 0..<($columns | length) {
+                let col_name = ($columns | get $col_idx)
+                let cell = ($row | get $col_name)
+                if $cell != null {
+                    let cell_str = ($cell | into string)
+                    if ($cell_str =~ $pattern) {
+                        let coord = $"($sheet_name)!(col_index_to_letter $col_idx)($row_idx + 1)"
+                        $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $cell_str })
+                    }
+                }
+            }
+        }
+    }
+    return $results
+}
+
+# 标准方式：使用 from csv 全量加载，返回 list<record>
+def search_in_csv_standard [file: string, separator: string, pattern: string] {
+    let table = open --raw $file | from csv --separator $separator
+    let columns = if ($table | is-empty) { [] } else { ($table | first | columns) }
+    mut results = []
+    for $row_idx in 0..<($table | length) {
+        let row = ($table | get $row_idx)
+        for $col_idx in 0..<($columns | length) {
+            let col_name = ($columns | get $col_idx)
+            let cell = ($row | get $col_name)
+            if $cell != null {
+                let cell_str = ($cell | into string)
+                if ($cell_str =~ $pattern) {
+                    let coord = $"Sheet1!(col_index_to_letter $col_idx)($row_idx + 1)"
+                    $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $cell_str })
+                }
+            }
+        }
+    }
+    return $results
+}
+
+# 流式处理：逐行 split，不处理引号，返回 list<record>
+def search_in_csv_streaming [file: string, separator: string, pattern: string] {
+    mut results = []
+    let lines = (open --raw $file | lines)
+    for $row_idx in 0..<($lines | length) {
+        let line = ($lines | get $row_idx)
+        if ($line | is-empty) { continue }
+        let fields = ($line | split row $separator)
+        for $col_idx in 0..<($fields | length) {
+            let field = ($fields | get $col_idx)
+            let trimmed = ($field | str trim)
+            if ($trimmed != '' and ($trimmed =~ $pattern)) {
+                let coord = $"Sheet1!(col_index_to_letter $col_idx)($row_idx + 1)"
+                $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $trimmed })
+            }
+        }
+    }
+    return $results
+}
+
+# 主命令：搜索表格文件，输出对齐的表格
 def se [
     pattern: string
     --ignore-case (-i),
     --csv-separator: string = ",",
     --stream
 ] {
-    let search_pattern = if $ignore_case { $"(?i)($pattern)" } else { $pattern }
+    let search_pattern = if $ignore_case { "(?i)" + $pattern } else { $pattern }
 
     let separator = (
         if $csv_separator == '\\t' { char tab }
@@ -101,9 +182,10 @@ def se [
         return
     }
 
+    mut all_results = []
     for $file in $table_files {
         let ext = ($file | path parse | get extension | str downcase)
-        if $ext in ['xlsx', 'xls', 'xlsm'] {
+        let results = if $ext in ['xlsx', 'xls', 'xlsm'] {
             search_in_excel $file $search_pattern
         } else if $ext in ['csv', 'tsv'] {
             if $stream {
@@ -111,57 +193,13 @@ def se [
             } else {
                 search_in_csv_standard $file $separator $search_pattern
             }
-        }
+        } else { [] }
+        $all_results = ($all_results | append $results)
     }
-}
 
-# 标准方式：使用 from csv 全量加载（支持引号转义，但内存占用高）
-def search_in_csv_standard [file: string, separator: string, pattern: string] {
-    let table = open $file | from csv --separator $separator
-    for $row in $table {
-        for $cell in ($row | values) {
-            if $cell != null {
-                let cell_str = ($cell | into string)
-                if ($cell_str =~ $pattern) {
-                    print $"($file) -- ($cell_str)"
-                }
-            }
-        }
-    }
-}
-
-# 流式处理：逐行 split，不处理引号，内存友好
-def search_in_csv_streaming [file: string, separator: string, pattern: string] {
-    open --raw $file | lines | each { |line|
-        if ($line | is-empty) { return }
-        let fields = ($line | split row $separator)
-        for $field in $fields {
-            let trimmed = ($field | str trim)
-            if ($trimmed != '' and ($trimmed =~ $pattern)) {
-                print $"($file) -- ($trimmed)"
-            }
-        }
-    }
-}
-
-# 在 Excel 文件中搜索（一次性加载所有工作表）
-def search_in_excel [file: string, pattern: string] {
-    let workbook = (open $file)
-    let tables = if ($workbook | describe) =~ 'record' {
-        $workbook | values
+    if ($all_results | is-empty) {
+        print $"未找到匹配的单元格内容: ($pattern)"
     } else {
-        [$workbook]
-    }
-    for $table in $tables {
-        for $row in $table {
-            for $cell in ($row | values) {
-                if $cell != null {
-                    let cell_str = ($cell | into string)
-                    if ($cell_str =~ $pattern) {
-                        print $"($file) -- ($cell_str)"
-                    }
-                }
-            }
-        }
+        $all_results | table --width 200
     }
 }
