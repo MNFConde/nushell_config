@@ -1,0 +1,157 @@
+ls
+ssssss
+ls
+exit
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+clear
+ls
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+ll
+ls
+all
+all --help
+ls
+clear
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+ls
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+nushell --help
+pwd
+$env.config | table -e | less -R
+$env.config | table -e
+ls
+uv run --help
+clear
+ls
+$env.config.completions.algorithm
+ls
+cd REST_Framework_Learn
+ls
+uv run manage.py makemigrations snippets
+clear
+uv run manage.py makemigrations snippets
+uv run manage.py migrate
+clear
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+uv run manage.py createsuperuser
+cd REST_Framework_Learn
+uv run manage.py createsuperuser
+scoop list
+scoop install startship
+ls
+where nu
+config nu
+$env | table -e
+setproxy
+curl www.google.hk
+curl -s --max-time 5 https://api.ipify.org
+fetch -t 5 https://api.ipify.org
+http get -t 5 https://api.ipify.org
+http get https://api.ipify.org
+curl -vv https://www.google.com
+setproxy
+scoop list
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+scoop install startship
+scoop install starship
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+scoop list
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+clear
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+curl -vv https://www.google.com
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+http -h
+http get --hrlp
+http get --help
+http get -t https://api.ipify.org
+http get https://api.ipify.org
+http get -m 5 https://api.ipify.org
+clear
+$nu
+$env
+$env.http_proxy
+setproxy
+$env.http_proxy
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+deactivat
+deactivate
+setproxy
+$env.http_proxy
+soverlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+curl -vv https://www.google.com
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+unsetproxy
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+unsetproxy
+setproxy
+with-env { http_proxy: $proxy, https_proxy: $proxy } curl -vv https://www.google.com
+$env.http_proxy
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+curl -s --max-time 5 https://api.ipify.org
+$env.https_proxy
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+hide-env http_proxy
+setproxy
+$env.http_proxy
+curl -vv https://www.google.com
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+setproxy
+curl -vv https://www.google.com
+unsetproxy
+curl -vv https://www.google.com
+clear
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+clear
+ls
+cd REST_Framework_Learn
+ls
+uv run manage.py runserver
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+uv run manage.py test snippets
+cd REST_Framework_Learn
+uv run manage.py test snippets
+overlay use d:\daten\code\PythonProject\DjangoLearn\.venv\Scripts\activate.nu
+http POST http://127.0.0.1:8000/snippets/ code="print 123"
+cd D:/
+ls
+clear
+ls
+cd daten/code
+ls
+cd PythonProject\
+ls
+mkdir DRF_docs
+cd DRF_docs\
+setproxy
+git clone https://github.com/Q1mi/Django-REST-framework-documentation.git
+config nu
+cd d:/
+cd daten\code\test\
+ls
+search_excel Ashish
+source config.nu
+source $nu.config-path
+search_excel Ashish
+se Ashish
+source $nu.config-path
+se Ashish
+clear
+source $nu.config-path
+se Ashish
+source $nu.config-path
+se Ashish
+se Ashish --stream
+se Ak --stream
+source $nu.config-path
