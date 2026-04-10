@@ -18,6 +18,7 @@
 #     config nu --doc | nu-highlight | less -R
 $env.config.shell_integration.osc133 = false
 $env.config.buffer_editor = "code"
+$env.use_ansi_coloring = true
 
 def greet [name] {
     $"Hello, ($name)!"
@@ -72,6 +73,12 @@ def check-proxy [] {
 # --csv-separator	    字符串	    ","	        CSV/TSV 分隔符，支持 ; | \t 等
 # --stream	            标志	    无	        对流式处理 CSV/TSV（逐行 split）
 
+# source $nu.config-path
+# se Ak --stream
+# se Ak --stream -i
+# se Ak --stream --ignore-case
+# se Ashish
+
 
 # 在递归查找的所有 Excel 文件中搜索指定字符串
 # 输入: 要搜索的字符串
@@ -88,8 +95,16 @@ def col_index_to_letter [idx: int] {
     }
 }
 
+# 高亮匹配部分（使用红色加粗）
+def highlight_match [text: string, pattern: string] {
+    if ($pattern | is-empty) { return $text }
+    let color_start = $"(ansi yellow_bold)"
+    let color_end = $"(ansi reset)"
+    $text | str replace -a $pattern { |each| $"($color_start)($each)($color_end)" }
+}
+
 # 在 Excel 文件中搜索，返回一个 list<record>
-def search_in_excel [file: string, pattern: string] {
+def search_in_excel [file: string, pattern: string, highlight_pattern: string] {
     let workbook = (open $file)
     let sheets = if ($workbook | describe) =~ 'record' { $workbook } else { { "Sheet1": $workbook } }
     mut results = []
@@ -105,7 +120,8 @@ def search_in_excel [file: string, pattern: string] {
                     let cell_str = ($cell | into string)
                     if ($cell_str =~ $pattern) {
                         let coord = $"($sheet_name)!(col_index_to_letter $col_idx)($row_idx + 1)"
-                        $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $cell_str })
+                        let highlighted = (highlight_match $cell_str $highlight_pattern)
+                        $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $highlighted })
                     }
                 }
             }
@@ -115,7 +131,7 @@ def search_in_excel [file: string, pattern: string] {
 }
 
 # 标准方式：使用 from csv 全量加载，返回 list<record>
-def search_in_csv_standard [file: string, separator: string, pattern: string] {
+def search_in_csv_standard [file: string, separator: string, pattern: string, highlight_pattern: string] {
     let table = open --raw $file | from csv --separator $separator
     let columns = if ($table | is-empty) { [] } else { ($table | first | columns) }
     mut results = []
@@ -128,7 +144,8 @@ def search_in_csv_standard [file: string, separator: string, pattern: string] {
                 let cell_str = ($cell | into string)
                 if ($cell_str =~ $pattern) {
                     let coord = $"Sheet1!(col_index_to_letter $col_idx)($row_idx + 1)"
-                    $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $cell_str })
+                    let highlighted = (highlight_match $cell_str $highlight_pattern)
+                    $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $highlighted })
                 }
             }
         }
@@ -137,7 +154,7 @@ def search_in_csv_standard [file: string, separator: string, pattern: string] {
 }
 
 # 流式处理：逐行 split，不处理引号，返回 list<record>
-def search_in_csv_streaming [file: string, separator: string, pattern: string] {
+def search_in_csv_streaming [file: string, separator: string, pattern: string, highlight_pattern: string] {
     mut results = []
     let lines = (open --raw $file | lines)
     for $row_idx in 0..<($lines | length) {
@@ -149,7 +166,8 @@ def search_in_csv_streaming [file: string, separator: string, pattern: string] {
             let trimmed = ($field | str trim)
             if ($trimmed != '' and ($trimmed =~ $pattern)) {
                 let coord = $"Sheet1!(col_index_to_letter $col_idx)($row_idx + 1)"
-                $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $trimmed })
+                let highlighted = (highlight_match $trimmed $highlight_pattern)
+                $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $highlighted })
             }
         }
     }
@@ -164,12 +182,9 @@ def se [
     --stream
 ] {
     let search_pattern = if $ignore_case { "(?i)" + $pattern } else { $pattern }
+let highlight_pattern = $search_pattern   # 高亮也使用带标志的正则
 
-    let separator = (
-        if $csv_separator == '\\t' { char tab }
-        else { $csv_separator }
-    )
-
+    let separator = ( if $csv_separator == '\\t' { char tab } else { $csv_separator } )
     let extensions = ['xlsx', 'xls', 'xlsm', 'csv', 'tsv']
 
     let all_files = (ls **/* | get name)
@@ -186,12 +201,12 @@ def se [
     for $file in $table_files {
         let ext = ($file | path parse | get extension | str downcase)
         let results = if $ext in ['xlsx', 'xls', 'xlsm'] {
-            search_in_excel $file $search_pattern
+            search_in_excel $file $search_pattern $highlight_pattern
         } else if $ext in ['csv', 'tsv'] {
             if $stream {
-                search_in_csv_streaming $file $separator $search_pattern
+                search_in_csv_streaming $file $separator $search_pattern $highlight_pattern
             } else {
-                search_in_csv_standard $file $separator $search_pattern
+                search_in_csv_standard $file $separator $search_pattern $highlight_pattern
             }
         } else { [] }
         $all_results = ($all_results | append $results)

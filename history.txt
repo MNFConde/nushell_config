@@ -155,3 +155,47 @@ se Ashish
 se Ashish --stream
 se Ak --stream
 source $nu.config-path
+se Ak --stream
+se Ak --stream -i
+se Ak --stream --ignore-case
+se Ashish
+source $nu.config-path
+se Ashish
+se Ak --stream
+se Ashish
+se Ak --stream --ignore-case
+source $nu.config-path
+se Ak --stream --ignore-case
+se a
+ls
+cd .
+cd ..
+se a
+cd test\
+ls
+se Ak --stream
+se Ak --stream -i
+se Ak --stream --ignore-case
+se Ashish
+source $nu.config-path
+se Ak --stream
+se Ak --stream --ignore-case
+echo "\u001b[1;31m红色加粗文字\u001b[0m正常文字"
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+se Ak --stream --ignore-case
+se Ashish
+source $nu.config-path
+se Ashish
+se Ak --stream --ignore-case
+se Ak --stream
+se Ak --stream --i
+source $nu.config-path
+se Ak --stream --i
+se Ak --stream --ignore-case
