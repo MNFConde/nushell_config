@@ -1,0 +1,179 @@
+# 参数	                类型	    默认值	    说明
+# pattern	            位置参数	必填	    要搜索的字符串（支持正则表达式）
+# --ignore-case / -i	标志	    无	        匹配时忽略大小写
+# --csv-separator	    字符串	    ","	        CSV/TSV 分隔符，支持 ; | \t 等
+# --stream	            标志	    无	        对流式处理 CSV/TSV（逐行 split）
+
+# source $nu.config-path
+# se Ak --stream
+# se Ak --stream -i
+# se Ak --stream --ignore-case
+# se Ashish
+
+
+# 在递归查找的所有 Excel 文件中搜索指定字符串
+# 输入: 要搜索的字符串
+# 输出: 每一行格式为 "相对路径 -- 匹配的单元格内容"
+# 辅助函数：将列索引（0-based）转换为 Excel 列字母（A, B, ..., Z, AA, AB...）
+def col_index_to_letter [idx: int] {
+    let letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    if $idx < 26 {
+        ($letters | str substring $idx..$idx)
+    } else {
+        let first = ($idx // 26) - 1
+        let second = ($idx mod 26)
+        (col_index_to_letter $first) + (col_index_to_letter $second)
+    }
+}
+
+# 将普通字符串转换为大小写不敏感的正则表达式（例如 "ak" -> "[aA][kK]"）
+def to_case_insensitive_pattern [s: string] {
+    $s | split chars | each { |c|
+        let lower = ($c | str downcase)
+        let upper = ($c | str upcase)
+        if $lower == $upper {
+            $c
+        } else {
+            "[" + $lower + $upper + "]"
+        }
+    } | str join
+}
+
+
+# 高亮匹配部分（支持大小写不敏感）
+def highlight_match [text: string, pattern: string] {
+    if ($pattern | is-empty) { return $text }
+    let color_start = $"(ansi yellow_bold)"
+    let color_end = $"(ansi reset)"
+    # 使用 -r 启用正则，闭包参数名用 |capture|
+    # p 是一个记录，p.0 是整个匹配的字符串
+    try {
+        $text | str replace -a -r $"($pattern)" $"($color_start)$0($color_end)"
+    } catch { |err|
+        print $"错误发生: ($err.msg)"
+        print $"错误详情: ($err)"
+        print $"$text: ($text)"
+        print $"$pattern: ($pattern)"
+    }
+}
+
+# 在 Excel 文件中搜索，返回一个 list<record>
+def search_in_excel [file: string, pattern: string, highlight_pattern: string] {
+    let workbook = (open $file)
+    let sheets = if ($workbook | describe) =~ 'record' { $workbook } else { { "Sheet1": $workbook } }
+    mut results = []
+    for $sheet_name in ($sheets | columns) {
+        let table = ($sheets | get $sheet_name)
+        let columns = if ($table | is-empty) { [] } else { ($table | first | columns) }
+        for $row_idx in 0..<($table | length) {
+            let row = ($table | get $row_idx)
+            for $col_idx in 0..<($columns | length) {
+                let col_name = ($columns | get $col_idx)
+                let cell = ($row | get $col_name)
+                if $cell != null {
+                    let cell_str = ($cell | into string)
+                    if ($cell_str =~ $pattern) {
+                        let coord = $"($sheet_name)!(col_index_to_letter $col_idx)($row_idx + 1)"
+                        let highlighted = (highlight_match $cell_str $highlight_pattern)
+                        $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $highlighted })
+                    }
+                }
+            }
+        }
+    }
+    return $results
+}
+
+# 标准方式：使用 from csv 全量加载，返回 list<record>
+def search_in_csv_standard [file: string, separator: string, pattern: string, highlight_pattern: string] {
+    let table = open --raw $file | from csv --separator $separator
+    let columns = if ($table | is-empty) { [] } else { ($table | first | columns) }
+    mut results = []
+    for $row_idx in 0..<($table | length) {
+        let row = ($table | get $row_idx)
+        for $col_idx in 0..<($columns | length) {
+            let col_name = ($columns | get $col_idx)
+            let cell = ($row | get $col_name)
+            if $cell != null {
+                let cell_str = ($cell | into string)
+                if ($cell_str =~ $pattern) {
+                    let coord = $"Sheet1!(col_index_to_letter $col_idx)($row_idx + 1)"
+                    let highlighted = (highlight_match $cell_str $highlight_pattern)
+                    $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $highlighted })
+                }
+            }
+        }
+    }
+    return $results
+}
+
+# 流式处理：逐行 split，不处理引号，返回 list<record>
+def search_in_csv_streaming [file: string, separator: string, pattern: string, highlight_pattern: string] {
+    mut results = []
+    let lines = (open --raw $file | lines)
+    for $row_idx in 0..<($lines | length) {
+        let line = ($lines | get $row_idx)
+        if ($line | is-empty) { continue }
+        let fields = ($line | split row $separator)
+        for $col_idx in 0..<($fields | length) {
+            let field = ($fields | get $col_idx)
+            let trimmed = ($field | str trim)
+            if ($trimmed != '' and ($trimmed =~ $pattern)) {
+                let coord = $"Sheet1!(col_index_to_letter $col_idx)($row_idx + 1)"
+                let highlighted = (highlight_match $trimmed $highlight_pattern)
+                $results = ($results | append { 文件: $file, 坐标: $coord, 内容: $highlighted })
+            }
+        }
+    }
+    return $results
+}
+
+# 主命令：搜索表格文件，输出对齐的表格
+def se [
+    pattern: string
+    --ignore-case (-i),
+    --csv-separator: string = ",",
+    --stream
+] {
+    let search_pattern = if $ignore_case { "(?i)" + $pattern } else { $pattern }
+    # 高亮用字符类模式，避免 (?i) 兼容问题
+    let highlight_pattern = if $ignore_case {
+        to_case_insensitive_pattern $pattern
+    } else {
+        $pattern
+    }
+
+    let separator = ( if $csv_separator == '\\t' { char tab } else { $csv_separator } )
+    let extensions = ['xlsx', 'xls', 'xlsm', 'csv', 'tsv']
+
+    let all_files = (ls **/* | get name)
+    let table_files = ($all_files | where {|f|
+        ($f | path parse | get extension | str downcase) in $extensions
+    })
+
+    if ($table_files | is-empty) {
+        print $"未找到任何支持的表格文件（扩展名: ($extensions | str join ', ')）"
+        return
+    }
+
+    mut all_results = []
+    for $file in $table_files {
+        let ext = ($file | path parse | get extension | str downcase)
+        let results = if $ext in ['xlsx', 'xls', 'xlsm'] {
+            search_in_excel $file $search_pattern $highlight_pattern
+        } else if $ext in ['csv', 'tsv'] {
+            if $stream {
+                search_in_csv_streaming $file $separator $search_pattern $highlight_pattern
+            } else {
+                search_in_csv_standard $file $separator $search_pattern $highlight_pattern
+            }
+        } else { [] }
+        $all_results = ($all_results | append $results)
+    }
+
+    if ($all_results | is-empty) {
+        print $"未找到匹配的单元格内容: ($pattern)"
+    } else {
+        $all_results | table --width 200
+    }
+}

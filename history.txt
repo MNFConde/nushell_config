@@ -199,3 +199,36 @@ se Ak --stream --i
 source $nu.config-path
 se Ak --stream --i
 se Ak --stream --ignore-case
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+se Ak --stream --ignore-case
+source $nu.config-path
+se Ak --stream --ignore-case
+se Ak --stream
+source $nu.config-path
+se Ak --stream --ignore-case
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+se Ak --stream --ignore-case
+source $nu.config-path
+se Ak --stream --ignore-case
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+source $nu.config-path
+se Ak --stream
+se Ak --stream --ignore-case
+se Ashish
+se Ak --stream --ignore-case
+se Ak --stream -i
+se Ak --stream
+source $nu.config-path
+se Ak --stream
