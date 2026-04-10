@@ -95,12 +95,35 @@ def col_index_to_letter [idx: int] {
     }
 }
 
-# 高亮匹配部分（使用红色加粗）
+# 将普通字符串转换为大小写不敏感的正则表达式（例如 "ak" -> "[aA][kK]"）
+def to_case_insensitive_pattern [s: string] {
+    $s | split chars | each { |c|
+        let lower = ($c | str downcase)
+        let upper = ($c | str upcase)
+        if $lower == $upper {
+            $c
+        } else {
+            "[" + $lower + $upper + "]"
+        }
+    } | str join
+}
+
+
+# 高亮匹配部分（支持大小写不敏感）
 def highlight_match [text: string, pattern: string] {
     if ($pattern | is-empty) { return $text }
     let color_start = $"(ansi yellow_bold)"
     let color_end = $"(ansi reset)"
-    $text | str replace -a $pattern { |each| $"($color_start)($each)($color_end)" }
+    # 使用 -r 启用正则，闭包参数名用 |capture|
+    # p 是一个记录，p.0 是整个匹配的字符串
+    try {
+        $text | str replace -a -r $"($pattern)" $"($color_start)$0($color_end)"
+    } catch { |err|
+        print $"错误发生: ($err.msg)"
+        print $"错误详情: ($err)"
+        print $"$text: ($text)"
+        print $"$pattern: ($pattern)"
+    }
 }
 
 # 在 Excel 文件中搜索，返回一个 list<record>
@@ -182,7 +205,12 @@ def se [
     --stream
 ] {
     let search_pattern = if $ignore_case { "(?i)" + $pattern } else { $pattern }
-let highlight_pattern = $search_pattern   # 高亮也使用带标志的正则
+    # 高亮用字符类模式，避免 (?i) 兼容问题
+    let highlight_pattern = if $ignore_case {
+        to_case_insensitive_pattern $pattern
+    } else {
+        $pattern
+    }
 
     let separator = ( if $csv_separator == '\\t' { char tab } else { $csv_separator } )
     let extensions = ['xlsx', 'xls', 'xlsm', 'csv', 'tsv']
